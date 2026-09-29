@@ -1,0 +1,120 @@
+WHAT IS IPC
+Inter-Process Communication (IPC) is a mechanism that allows independent processes to exchange data and synchronize their actions.
+
+DEFINITION OF IPC
+IPC is a set of mechanisms provided by the Operating System that enables processes running in separate memory spaces to communicate with each other, share data, and coordinate their execution.
+In simple terms, processes cannot directly access each other's memory, so IPC acts as a bridge that allows them to communicate.
+
+CHARACTERISTICS OF IPC
+• Data Exchange: Allows processes to send and receive data.
+• Synchronization: Helps processes coordinate their actions.
+• Isolation Support: Works even though processes have separate memory spaces.
+• OS-Managed: The Operating System provides and controls the communication channels.
+• Flexible: Can be used for communication between processes on the same computer or across a network.
+
+WHY IPC IS NEEDED
+• Processes are isolated by design for security and stability, so they need a way to share data.
+• Modern applications are divided into multiple processes that need to work together.
+• Without IPC, processes cannot easily communicate or cooperate to complete complex tasks.
+• IPC allows processes to share information and system resources instead of duplicating work.
+• It helps different processes coordinate their activities.
+Example:
+A web browser and a web server need to exchange requests and responses. IPC provides mechanisms that allow processes to communicate and coordinate with each other.
+
+METHODS OF IPC
+1) PIPES
+A Pipe is one of the simplest and oldest forms of IPC. It provides a communication channel through which data can flow from one process to another.
+A pipe is usually unidirectional, meaning data flows in only one direction. One process writes data into the pipe, and another process reads that data.
+
+A pipe has two ends:
+• Write end – used to put data into the pipe.
+• Read end – used to take data from the pipe.
+
+The pipe works like a physical water pipe. One process puts data into one end, and the other process receives the data from the other end.
+The pipe uses a temporary buffer in memory to hold the data until the receiving process reads it.
+
+HOW PIPES WORK
+First, the Operating System creates a pipe with a read end and a write end. The writing process sends data through the write end. The data is temporarily stored in the pipe. The receiving process then reads the data from the read end.
+Pipes are generally used between related processes, such as a parent process and its child process.
+
+KEY POINTS 
+• Pipes are mainly unidirectional.
+• Data flows from the write end to the read end.
+• They are generally used between related processes.
+• They do not have a permanent name in the filesystem.
+• They are temporary and exist while the processes are using them.
+• They provide a simple and fast method of IPC.
+• The Operating System manages the pipe and its buffer.
+• Data is read in the order in which it was written.
+
+EXAMPLE OF A PIPE
+In a Linux terminal:
+ls -l | grep ".txt"
+
+Here:
+• ls -l produces a list of files.
+• The | symbol represents the pipe.
+• grep ".txt" receives the output of ls.
+• grep filters the output and displays files containing .txt.
+So, the pipe allows the output of one process to become the input of another process.
+
+ADVANTAGES OF PIPES
+• Simple to use.
+• Fast communication between processes.
+• Managed by the Operating System.
+• Useful for transferring data between related processes.
+• Does not require a separate file for communication.
+
+2) NAMED PIPES (FIFOs)
+A Named Pipe, also called a FIFO (First In, First Out), is an advanced form of a normal pipe.
+The main difference is that a named pipe has a name in the filesystem. Because of this name, processes can find and use the pipe even if they are unrelated processes.
+A named pipe behaves like a normal pipe for transferring data, but its name makes it easier for different processes to communicate.
+
+HOW NAMED PIPES WORK
+A named pipe is first created as a special file using a command such as:mkfifo mypipe
+After the named pipe is created, one process can write data into it, while another process can read the data from it.
+The processes do not need to have a parent-child relationship. They only need to know the name or location of the named pipe.
+The data follows FIFO order, meaning the data that enters first is read first.
+
+EXAMPLE
+Suppose a logging process writes messages into:/tmp/logfifo
+Another monitoring process can read those messages from the same named pipe.
+The two processes can be completely unrelated. The name of the pipe allows them to communicate.
+
+KEY POINTS OF NAMED PIPES
+• Also called FIFO.
+• Has a name in the filesystem.
+• Can be used by unrelated processes.
+• Usually provides one-way communication.
+• Data is transferred in First In, First Out order.
+• The pipe can be accessed by processes that know its name.
+• More flexible than an ordinary pipe.
+• Useful when processes need to communicate even though they were created separately.
+
+ADVANTAGES OF NAMED PIPES
+• Can communicate between unrelated processes.
+• Has a name, so processes can easily identify the communication channel.
+• Simple to use.
+• Useful for continuous communication between independent programs.
+• Maintains FIFO order of data.
+
+DIFFERENCE BETWEEN PIPES AND NAMED PIPES
+Pipes:
+• Usually used between related processes.
+• Does not have a name in the filesystem.
+• Temporary communication channel.
+• Simple and less flexible.
+• Usually one-way.
+• Created and managed by the Operating System.
+• Example: ls -l | grep ".txt"
+
+Named Pipes (FIFOs):
+• Can be used between unrelated processes.
+• Has a name in the filesystem.
+• Has a filesystem entry.
+• More flexible.
+• Usually one-way.
+• Created as a special named file.
+• Example: /tmp/myfifo
+
+
