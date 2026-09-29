@@ -1,0 +1,64 @@
+Shared Memory, Memory-Mapped Files, Semaphores and Mutexes
+
+
+Introduction:
+Interprocess Communication (IPC) allows different processes to communicate and share data with each other.
+Shared memory and memory-mapped files are used for sharing data, while semaphores and mutexes are mainly used for synchronization and controlling access to shared resources.
+
+
+1. Shared Memory:
+ Shared memory is an IPC method where two or more processes access the same area of memory.
+
+Working
+  A common memory area is created.
+  Multiple processes can access it.
+  One process can write data and another can read it.
+
+Advantages
+  Fast communication.
+  Efficient for large amounts of data.
+  Reduces unnecessary data copying.
+
+Python: multiprocessing.shared_memory, Value, and Array can be used.
+
+2. Memory-Mapped Files:
+ A memory-mapped file maps a file or part of a file into memory. Processes can then access the file data through memory.
+
+Advantages
+  Faster and convenient access to file data.
+  Useful for large files.
+  Shared mappings can allow multiple processes to access common data.
+  
+Python: The mmap module is used.
+
+3. Semaphores:
+ A semaphore is a synchronization technique that controls how many processes or threads can access a shared resource at the same time.
+
+Working
+  A process acquires the semaphore before accessing the resource.
+  It uses the resource.
+  It releases the semaphore after completion.
+
+Python: multiprocessing.Semaphore() is used.
+
+4.  Mutexes:
+ A mutex (Mutual Exclusion) allows only one process or thread at a time to enter a protected critical section.
+
+Working
+  A process locks the mutex.
+  It accesses the shared resource.
+  It unlocks the mutex when finished.
+  Other processes wait until the lock is released.
+
+Python: multiprocessing.Lock() can provide mutual exclusion.
+
+Semaphore vs Mutex:
+Semaphore                                         Mutex
+Uses a counter/permits.                           Uses mutual exclusion.
+Can allow multiple users depending on the count.  Allows only one user in the protected section at a time.
+Controls access to limited resources.             Protects a shared resource or critical section.
+
+
+Conclusion: 
+Shared memory and memory-mapped files provide efficient ways for processes to share data. Semaphores and mutexes help synchronize processes and prevent conflicts when accessing shared resources.
+Together, these techniques make interprocess communication efficient, controlled, and reliable.
