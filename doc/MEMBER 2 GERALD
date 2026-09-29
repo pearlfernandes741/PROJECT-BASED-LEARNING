@@ -1,0 +1,122 @@
+Person 2: Message Queues, Sockets and RPC
+
+1. Message Queues
+
+What is a Message Queue?
+
+A message queue is a place where one process can send messages and another process can receive them later.
+
+How does it work?
+
+Sender → Message Queue → Receiver
+
+The sender puts a message into the queue.
+The message stays there until the receiver reads it.
+
+Main Features
+
+* Communication is done using messages.
+* Messages are stored temporarily.
+* Sender and receiver do not need to work at the same time.
+* More than one process can use a queue.
+
+Advantages
+
+* Simple communication between processes.
+* Sender and receiver can work independently.
+* Useful when messages need to wait.
+
+Disadvantages
+
+* Queue has limited storage.
+* Not ideal for very large amounts of data.
+
+Example
+
+A background application sends tasks to another process through a message queue.
+
+⸻
+
+2. Sockets
+
+What is a Socket?
+
+A socket is a communication endpoint that allows two processes to exchange data.
+
+It can be used:
+
+* On the same computer
+* Between different computers through a network
+
+How does it work?
+
+Client → Socket ⇄ Network ⇄ Socket ← Server
+
+The client connects to the server, and they exchange data through sockets.
+
+Types
+
+1. Stream Socket – reliable communication, commonly uses TCP.
+2. Datagram Socket – sends individual packets, commonly uses UDP.
+
+Main Features
+
+* Can work over a network.
+* Uses an address and port.
+* Commonly used in client-server communication.
+
+Advantages
+
+* Can communicate between different computers.
+* Useful for network applications.
+* Widely used and flexible.
+
+Disadvantages
+
+* Network problems can affect communication.
+* Slightly more difficult than simple local IPC methods.
+
+Example
+
+A web browser communicates with a web server using sockets.
+
+⸻
+
+3. Remote Procedure Call (RPC)
+
+What is RPC?
+
+RPC allows one program to call a function or procedure in another program, even when it is running on another computer.
+
+It makes a remote function call look like a normal function call.
+
+How does it work?
+
+Client → Request → Server → Result → Client
+
+1. Client asks for a service.
+2. Server receives the request.
+3. Server performs the task.
+4. Server sends the result back.
+
+Main Features
+
+* Used in distributed systems.
+* Works using a client-server model.
+* Hides much of the communication process from the programmer.
+
+Advantages
+
+* Easy way for programs to communicate.
+* Makes remote services easier to use.
+* Useful for distributed applications.
+
+Disadvantages
+
+* Network failure can stop communication.
+* Slower than a normal local function call.
+* Requires network communication.
+
+Example
+
+A mobile application sends a request to a remote server using RPC and receives the requested information.
