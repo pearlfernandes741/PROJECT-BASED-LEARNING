@@ -1,0 +1,95 @@
+Signals
+A signal is a simple way of informing a process that some event has happened. It is mainly used for notifications rather than sending large amounts of data.
+
+Examples of Signals
+- SIGINT – Stops or interrupts a running process, usually when "Ctrl + C" is pressed.
+- SIGTERM – Requests a process to terminate.
+- SIGKILL – Immediately stops a process.
+- SIGALRM – Used for timer or alarm events.
+
+Advantages
+- Simple and fast.
+- Easy to use for notifications.
+- Uses very little data.
+
+Limitations
+- Cannot be used to send large amounts of data.
+- Only provides limited information about an event.
+
+
+Message Brokers
+A message broker is a system that helps different applications or services exchange messages. It works between the sender and receiver.
+
+Basic Working
+
+Sender → Message Broker → Receiver
+
+For example, in an online shopping application, the order service can send a message to a message broker. The payment, inventory or delivery service can then receive that message.
+
+Examples
+
+- RabbitMQ
+- Apache Kafka
+- ActiveMQ
+- Amazon SQS
+
+Advantages
+
+- Makes communication between services easier.
+- Supports sending messages without waiting for the receiver.
+- Useful when many applications need to communicate.
+- Can store messages until they are processed.
+
+Comparison of IPC Methods
+
+IPC Method| Main Use| Speed| Example
+Pipes| Simple data transfer| Fast| Parent and child process
+Named Pipes| Communication between processes| Fast| Local client-server
+Message Queues| Sending messages| Medium| Task processing
+Shared Memory| Sharing large data| Very Fast| Image/video processing
+Memory-Mapped Files| Sharing file data| Fast| File sharing
+Semaphores & Mutexes| Synchronization| Very Fast| Protecting shared data
+Sockets| Network communication| Medium| Web applications
+RPC| Calling a function remotely| Medium| Distributed applications
+Signals| Sending notifications| Very Fast| Process control
+Message Brokers| Communication between services| Depends on system| Microservices
+
+Each method is useful for a different purpose. For example, shared memory is useful for large amounts of data, signals are useful for notifications, and sockets are useful when communication is needed over a network.
+
+
+Real-World Applications of IPC
+
+IPC is used in many applications and operating systems.
+
+1. Operating Systems
+
+Different processes running in an operating system use IPC to communicate and share information.
+
+2. Web Browsers
+
+Different parts of a browser, such as the browser process and rendering process, communicate with each other using IPC.
+
+3. Banking Applications
+
+Banking systems have different services for accounts, payments and transactions. IPC helps these services communicate.
+
+4. Online Shopping
+
+When a customer places an order, different services such as payment, inventory and delivery need to communicate.
+
+5. Cloud Applications
+
+Cloud applications often have many small services. Message brokers, sockets and RPC can be used for communication between these services.
+
+6. Multimedia Applications
+
+Shared memory can be used when processes need to quickly share large amounts of image, audio or video data.
+
+
+Conclusion
+
+IPC is an important part of operating systems because it allows different processes to communicate and work together.
+
+There are many IPC methods, and each one has its own purpose. Signals are useful for notifications, shared memory is useful for fast data sharing, sockets are useful for network communication, and message brokers are useful for communication between different services.
+
+Choosing the right IPC method depends on the type of communication and the requirements of the application.
