@@ -9,7 +9,7 @@
 
 #define UI_FIFO   "ui_to_core.fifo"
 #define CORE_FIFO "core_to_ui.fifo"
-#define SIZE 200
+#define SIZE 300
 
 void createFIFO(char *name)
 {
@@ -31,20 +31,25 @@ void showMenu()
     printf("       MULTI-PROCESS SIMULATOR\n");
     printf("              UI PROCESS\n");
     printf("====================================\n");
+
     printf("1. Execute Instruction\n");
     printf("2. Run Demo Program\n");
     printf("3. Core Status\n");
     printf("4. Exit\n");
+
     printf("Enter choice: ");
 }
 
 void demo(int out, int in)
 {
-    char *program[] = {
+    char *program[] =
+    {
         "LOAD 10\n",
         "ADD 5\n",
+        "SUB 2\n",
+        "MUL 3\n",
+        "DIV 2\n",
         "PUSH\n",
-        "LOAD 20\n",
         "POP\n",
         "STORE 50\n",
         "LOADM 50\n"
@@ -54,16 +59,22 @@ void demo(int out, int in)
 
     printf("\n--- DEMO PROGRAM ---\n");
 
-    for (int i = 0; i < 7; i++)
+    for (int i = 0; i < 9; i++)
     {
         printf(">> %s", program[i]);
 
         sendCommand(out, program[i]);
 
-        int n = read(in, response, SIZE - 1);
-        response[n] = '\0';
+        int n = read(in,
+                     response,
+                     SIZE - 1);
 
-        printf("%s\n", response);
+        if (n > 0)
+        {
+            response[n] = '\0';
+
+            printf("%s\n", response);
+        }
     }
 }
 
@@ -72,26 +83,40 @@ int validInstruction(char *cmd)
     char word[20];
     int value;
 
-    if (sscanf(cmd, "%19s %d", word, &value) == 2)
+    if (sscanf(cmd,
+               "%19s %d",
+               word,
+               &value) == 2)
     {
-        if (!strcmp(word, "LOAD")  ||
-            !strcmp(word, "ADD")   ||
-            !strcmp(word, "SUB")   ||
+        if (!strcmp(word, "LOAD") ||
+            !strcmp(word, "ADD") ||
+            !strcmp(word, "SUB") ||
+            !strcmp(word, "MUL") ||
+            !strcmp(word, "DIV") ||
             !strcmp(word, "STORE") ||
             !strcmp(word, "LOADM"))
+        {
             return 1;
+        }
     }
 
-    if (!strcmp(cmd, "PUSH") || !strcmp(cmd, "POP"))
+    if (!strcmp(cmd, "PUSH") ||
+        !strcmp(cmd, "POP"))
+    {
         return 1;
+    }
 
     return 0;
 }
 
 int main()
 {
-    int out, in, choice;
-    char cmd[SIZE], response[SIZE];
+    int out;
+    int in;
+    int choice;
+
+    char cmd[SIZE];
+    char response[SIZE];
 
     createFIFO(UI_FIFO);
     createFIFO(CORE_FIFO);
@@ -99,9 +124,16 @@ int main()
     printf("Waiting for Core Process...\n");
 
     out = open(UI_FIFO, O_WRONLY);
-    in  = open(CORE_FIFO, O_RDONLY);
 
-    if (out == -1 || in == -1)
+    if (out == -1)
+    {
+        perror("Core connection");
+        return 1;
+    }
+
+    in = open(CORE_FIFO, O_RDONLY);
+
+    if (in == -1)
     {
         perror("Core connection");
         return 1;
@@ -116,68 +148,113 @@ int main()
         if (scanf("%d", &choice) != 1)
         {
             while (getchar() != '\n');
+
             printf("Invalid choice!\n");
+
             continue;
         }
 
         getchar();
 
-        /* Execute one instruction */
+
+        /* Execute Instruction */
+
         if (choice == 1)
         {
             printf("\nEnter instruction: ");
-            fgets(cmd, SIZE, stdin);
+
+            fgets(cmd,
+                  SIZE,
+                  stdin);
 
             cmd[strcspn(cmd, "\n")] = '\0';
 
             for (int i = 0; cmd[i]; i++)
-                cmd[i] = toupper(cmd[i]);
+            {
+                cmd[i] =
+                    toupper((unsigned char)cmd[i]);
+            }
 
             if (!validInstruction(cmd))
             {
                 printf("Invalid instruction!\n");
+
                 continue;
             }
 
             strcat(cmd, "\n");
+
             sendCommand(out, cmd);
 
-            int n = read(in, response, SIZE - 1);
-            response[n] = '\0';
+            int n = read(in,
+                         response,
+                         SIZE - 1);
 
-            printf("Core: %s\n", response);
+            if (n > 0)
+            {
+                response[n] = '\0';
+
+                printf("Core:\n%s\n",
+                       response);
+            }
         }
 
+
         /* Demo */
+
         else if (choice == 2)
         {
             demo(out, in);
         }
 
+
         /* Status */
+
         else if (choice == 3)
         {
-            sendCommand(out, "STATUS\n");
+            sendCommand(out,
+                         "STATUS\n");
 
-            int n = read(in, response, SIZE - 1);
-            response[n] = '\0';
+            int n = read(in,
+                         response,
+                         SIZE - 1);
 
-            printf("\n--- CORE STATUS ---\n");
-            printf("%s\n", response);
+            if (n > 0)
+            {
+                response[n] = '\0';
+
+                printf("\n--- CORE STATUS ---\n");
+
+                printf("%s\n",
+                       response);
+            }
         }
 
+
         /* Exit */
+
         else if (choice == 4)
         {
-            sendCommand(out, "EXIT\n");
+            sendCommand(out,
+                         "EXIT\n");
+
+            int n = read(in,
+                         response,
+                         SIZE - 1);
+
+            if (n > 0)
+            {
+                response[n] = '\0';
+
+                printf("%s\n",
+                       response);
+            }
 
             close(out);
             close(in);
 
-            unlink(UI_FIFO);
-            unlink(CORE_FIFO);
-
             printf("UI Process closed.\n");
+
             break;
         }
 
