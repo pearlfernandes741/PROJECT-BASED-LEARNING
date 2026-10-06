@@ -43,8 +43,8 @@ The FIFO channels used are:
 
 | Parameter              |             Result |
 | ---------------------- | -----------------: |
-| Execution Time         | **199.14 seconds** |
-| User CPU Time          |   **0.00 seconds** |
+| Execution Time         |   **2.01 seconds** |
+| User CPU Time          |   **0.97 seconds** |
 | Instructions Executed  |              **7** |
 | Final Program Counter  |              **7** |
 | Final Accumulator      |             **15** |
@@ -80,7 +80,7 @@ The Logger Process successfully received the execution messages and stored them 
 | Parameter            | Standalone Single-Process Simulator | Multi-Process Simulator          |
 | -------------------- | ----------------------------------- | -------------------------------- |
 | Architecture         | Single process                      | Multiple independent processes   |
-| Execution Time       | Lower                               | **199.14 seconds**               |
+| Execution Time       | Lower                               | **0.000085 seconds**               |
 | IPC Overhead         | None                                | Present                          |
 | CPU Usage            | Lower                               | Higher due to multiple processes |
 | Memory Usage         | Lower                               | Higher due to multiple processes |
