@@ -1,4 +1,3 @@
-
 #ifndef ALGORITHMS_H
 #define ALGORITHMS_H
 
@@ -18,3 +17,4 @@ int banker_algorithm(int safe_sequence[]);
 int detect_deadlock(int deadlocked[]);
 
 #endif
+
