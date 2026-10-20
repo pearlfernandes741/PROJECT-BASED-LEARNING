@@ -1,0 +1,81 @@
+
+/* Soft aesthetic lavender and blush theme */
+
+window {
+    background-color: #FAF7F5;
+    color: #51465C;
+}
+
+notebook {
+    background-color: #FAF7F5;
+}
+
+notebook header {
+    background-color: #F4DDE5;
+}
+
+notebook tab {
+    background-color: #E9DFF5;
+    padding: 12px 18px;
+    border-radius: 6px;
+    margin: 3px;
+}
+
+notebook tab:checked {
+    background-color: #9B83B5;
+}
+
+notebook tab:checked label {
+    color: #FFFFFF;
+}
+
+label {
+    color: #51465C;
+}
+
+button {
+    background-image: none;
+    background-color: #B59BCB;
+    color: #FFFFFF;
+    border-radius: 8px;
+    padding: 10px 16px;
+    border: none;
+}
+
+button:hover {
+    background-color: #9B83B5;
+}
+
+button:active {
+    background-color: #80679C;
+}
+
+entry, spinbutton, combobox {
+    background-color: #FFFFFF;
+    color: #51465C;
+    border: 1px solid #D8C6DF;
+    border-radius: 6px;
+    padding: 5px;
+}
+
+treeview {
+    background-color: #FFFFFF;
+    color: #51465C;
+}
+
+scrolledwindow {
+    background-color: #FAF7F5;
+}
+
+frame {
+    background-color: #FFF9FC;
+    border-radius: 10px;
+    padding: 10px;
+}
+
+textview, textview text {
+    background-color: #F5EDF7;
+    color: #51465C;
+}
+
+
