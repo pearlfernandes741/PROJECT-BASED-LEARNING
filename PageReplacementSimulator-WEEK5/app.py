@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -11,12 +10,11 @@ from comparison import build_comparison, find_best_algorithm
 # Page configuration
 st.set_page_config(
     page_title="Page Replacement Simulator",
-    page_icon="💻",
     layout="wide"
 )
 
 # Title and description
-st.title("💻 Page Replacement Simulator")
+st.title("Page Replacement Simulator")
 st.write(
     "Simulate and compare FIFO, LRU, and Optimal page replacement algorithms."
 )
