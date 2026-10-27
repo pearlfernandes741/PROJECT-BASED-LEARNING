@@ -1,4 +1,3 @@
-
 def calculate_statistics(steps):
     """Calculate hits, faults, and ratios for an algorithm."""
 
@@ -43,3 +42,4 @@ def find_best_algorithm(comparison):
         comparison,
         key=lambda name: comparison[name]["Page Faults"]
     )
+
