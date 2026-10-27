@@ -1,4 +1,3 @@
-
 def simulate_fifo(reference_string, frame_count):
     """
     Simulate FIFO (First In, First Out) page replacement.
@@ -43,4 +42,3 @@ def simulate_fifo(reference_string, frame_count):
         })
 
     return steps
-
