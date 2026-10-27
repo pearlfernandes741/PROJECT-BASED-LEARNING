@@ -1,268 +1,148 @@
+// ui.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <mqueue.h>
 #include <fcntl.h>
-#include <sys/stat.h>
-#include <errno.h>
-#include <ctype.h>
 
-#define UI_FIFO   "ui_to_core.fifo"
-#define CORE_FIFO "core_to_ui.fifo"
-#define SIZE 300
+#define SOCKET_PATH "/tmp/week4_sim.sock"
+#define QUEUE_NAME "/week4_sim_queue"
+#define BUFFER_SIZE 256
 
-void createFIFO(char *name)
+int main(void)
 {
-    if (mkfifo(name, 0666) == -1 && errno != EEXIST)
-    {
-        perror("FIFO");
-        exit(1);
-    }
-}
+    int sock, choice;
+    struct sockaddr_un address;
+    mqd_t mq;
+    char command[BUFFER_SIZE];
+    char response[BUFFER_SIZE + 1];
+    double a, b;
+    long value;
 
-void sendCommand(int fd, char *cmd)
-{
-    write(fd, cmd, strlen(cmd));
-}
-
-void showMenu()
-{
-    printf("\n====================================\n");
-    printf("       MULTI-PROCESS SIMULATOR\n");
-    printf("              UI PROCESS\n");
-    printf("====================================\n");
-
-    printf("1. Execute Instruction\n");
-    printf("2. Run Demo Program\n");
-    printf("3. Core Status\n");
-    printf("4. Exit\n");
-
-    printf("Enter choice: ");
-}
-
-void demo(int out, int in)
-{
-    char *program[] =
-    {
-        "LOAD 10\n",
-        "ADD 5\n",
-        "SUB 2\n",
-        "MUL 3\n",
-        "DIV 2\n",
-        "PUSH\n",
-        "POP\n",
-        "STORE 50\n",
-        "LOADM 50\n"
-    };
-
-    char response[SIZE];
-
-    printf("\n--- DEMO PROGRAM ---\n");
-
-    for (int i = 0; i < 9; i++)
-    {
-        printf(">> %s", program[i]);
-
-        sendCommand(out, program[i]);
-
-        int n = read(in,
-                     response,
-                     SIZE - 1);
-
-        if (n > 0)
-        {
-            response[n] = '\0';
-
-            printf("%s\n", response);
-        }
-    }
-}
-
-int validInstruction(char *cmd)
-{
-    char word[20];
-    int value;
-
-    if (sscanf(cmd,
-               "%19s %d",
-               word,
-               &value) == 2)
-    {
-        if (!strcmp(word, "LOAD") ||
-            !strcmp(word, "ADD") ||
-            !strcmp(word, "SUB") ||
-            !strcmp(word, "MUL") ||
-            !strcmp(word, "DIV") ||
-            !strcmp(word, "STORE") ||
-            !strcmp(word, "LOADM"))
-        {
-            return 1;
-        }
-    }
-
-    if (!strcmp(cmd, "PUSH") ||
-        !strcmp(cmd, "POP"))
-    {
+    sock = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (sock == -1) {
+        perror("UI: socket");
         return 1;
     }
 
-    return 0;
-}
+    memset(&address, 0, sizeof(address));
+    address.sun_family = AF_UNIX;
+    strcpy(address.sun_path, SOCKET_PATH);
 
-int main()
-{
-    int out;
-    int in;
-    int choice;
-
-    char cmd[SIZE];
-    char response[SIZE];
-
-    createFIFO(UI_FIFO);
-    createFIFO(CORE_FIFO);
-
-    printf("Waiting for Core Process...\n");
-
-    out = open(UI_FIFO, O_WRONLY);
-
-    if (out == -1)
-    {
-        perror("Core connection");
+    if (connect(sock, (struct sockaddr *)&address, sizeof(address)) == -1) {
+        perror("UI: connect to Core");
+        close(sock);
         return 1;
     }
 
-    in = open(CORE_FIFO, O_RDONLY);
-
-    if (in == -1)
-    {
-        perror("Core connection");
+    mq = mq_open(QUEUE_NAME, O_RDONLY);
+    if (mq == (mqd_t)-1) {
+        perror("UI: open message queue");
+        close(sock);
         return 1;
     }
 
-    printf("UI connected to Core successfully.\n");
+    printf("\n=== MULTI-PROCESS SIMULATOR ===\n");
 
-    while (1)
-    {
-        showMenu();
+    while (1) {
+        printf("\n1. ADD\n");
+        printf("2. SUBTRACT\n");
+        printf("3. MULTIPLY\n");
+        printf("4. DIVIDE\n");
+        printf("5. LOAD VALUE\n");
+        printf("6. PUSH TO STACK\n");
+        printf("7. POP FROM STACK\n");
+        printf("8. ENQUEUE\n");
+        printf("9. DEQUEUE\n");
+        printf("10. CORE STATUS\n");
+        printf("0. EXIT\n");
+        printf("Enter choice: ");
 
-        if (scanf("%d", &choice) != 1)
-        {
-            while (getchar() != '\n');
-
-            printf("Invalid choice!\n");
-
+        if (scanf("%d", &choice) != 1) {
+            int ch;
+            while ((ch = getchar()) != '\n' && ch != EOF) {}
+            printf("Please enter a valid number.\n");
             continue;
         }
 
-        getchar();
-
-
-        /* Execute Instruction */
-
-        if (choice == 1)
-        {
-            printf("\nEnter instruction: ");
-
-            fgets(cmd,
-                  SIZE,
-                  stdin);
-
-            cmd[strcspn(cmd, "\n")] = '\0';
-
-            for (int i = 0; cmd[i]; i++)
-            {
-                cmd[i] =
-                    toupper((unsigned char)cmd[i]);
-            }
-
-            if (!validInstruction(cmd))
-            {
-                printf("Invalid instruction!\n");
-
+        if (choice == 0) {
+            snprintf(command, sizeof(command), "EXIT\n");
+        } else if (choice >= 1 && choice <= 4) {
+            printf("Enter first number: ");
+            if (scanf("%lf", &a) != 1) {
+                printf("Invalid number.\n");
+                int ch;
+                while ((ch = getchar()) != '\n' && ch != EOF) {}
                 continue;
             }
 
-            strcat(cmd, "\n");
-
-            sendCommand(out, cmd);
-
-            int n = read(in,
-                         response,
-                         SIZE - 1);
-
-            if (n > 0)
-            {
-                response[n] = '\0';
-
-                printf("Core:\n%s\n",
-                       response);
-            }
-        }
-
-
-        /* Demo */
-
-        else if (choice == 2)
-        {
-            demo(out, in);
-        }
-
-
-        /* Status */
-
-        else if (choice == 3)
-        {
-            sendCommand(out,
-                         "STATUS\n");
-
-            int n = read(in,
-                         response,
-                         SIZE - 1);
-
-            if (n > 0)
-            {
-                response[n] = '\0';
-
-                printf("\n--- CORE STATUS ---\n");
-
-                printf("%s\n",
-                       response);
-            }
-        }
-
-
-        /* Exit */
-
-        else if (choice == 4)
-        {
-            sendCommand(out,
-                         "EXIT\n");
-
-            int n = read(in,
-                         response,
-                         SIZE - 1);
-
-            if (n > 0)
-            {
-                response[n] = '\0';
-
-                printf("%s\n",
-                       response);
+            printf("Enter second number: ");
+            if (scanf("%lf", &b) != 1) {
+                printf("Invalid number.\n");
+                int ch;
+                while ((ch = getchar()) != '\n' && ch != EOF) {}
+                continue;
             }
 
-            close(out);
-            close(in);
+            if (choice == 1)
+                snprintf(command, sizeof(command), "ADD %.10g %.10g\n", a, b);
+            else if (choice == 2)
+                snprintf(command, sizeof(command), "SUB %.10g %.10g\n", a, b);
+            else if (choice == 3)
+                snprintf(command, sizeof(command), "MUL %.10g %.10g\n", a, b);
+            else
+                snprintf(command, sizeof(command), "DIV %.10g %.10g\n", a, b);
 
-            printf("UI Process closed.\n");
+        } else if (choice == 5 || choice == 6 || choice == 8) {
+            printf("Enter value: ");
+            if (scanf("%ld", &value) != 1) {
+                printf("Invalid value.\n");
+                int ch;
+                while ((ch = getchar()) != '\n' && ch != EOF) {}
+                continue;
+            }
 
+            if (choice == 5)
+                snprintf(command, sizeof(command), "LOAD %ld\n", value);
+            else if (choice == 6)
+                snprintf(command, sizeof(command), "PUSH %ld\n", value);
+            else
+                snprintf(command, sizeof(command), "ENQUEUE %ld\n", value);
+
+        } else if (choice == 7) {
+            snprintf(command, sizeof(command), "POP\n");
+        } else if (choice == 9) {
+            snprintf(command, sizeof(command), "DEQUEUE\n");
+        } else if (choice == 10) {
+            snprintf(command, sizeof(command), "STATUS\n");
+        } else {
+            printf("Invalid choice. Try again.\n");
+            continue;
+        }
+
+        if (send(sock, command, strlen(command), 0) == -1) {
+            perror("UI: send");
             break;
         }
 
-        else
-        {
-            printf("Invalid choice!\n");
+        ssize_t n = mq_receive(mq, response, BUFFER_SIZE, NULL);
+        if (n == -1) {
+            perror("UI: receive response");
+            break;
         }
+
+        response[n] = '\0';
+        printf("\n%s\n", response);
+
+        if (choice == 0)
+            break;
     }
 
+    mq_close(mq);
+    close(sock);
+    printf("UI process stopped.\n");
     return 0;
 }
