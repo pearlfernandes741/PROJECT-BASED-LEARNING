@@ -1,383 +1,228 @@
+// core.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/stat.h>
+#include <mqueue.h>
 
-#define MEMORY_SIZE 100
-#define STACK_SIZE 100
-#define QUEUE_SIZE 100
+#define SOCKET_PATH "/tmp/week4_sim.sock"
+#define QUEUE_NAME "/week4_sim_queue"
+#define FIFO_PATH "core_to_logger.fifo"
+#define BUFFER_SIZE 256
+#define MAX_ITEMS 20
 
-#define UI_FIFO "ui_to_core.fifo"
-#define CORE_FIFO "core_to_ui.fifo"
-#define LOGGER_FIFO "logger_fifo"
-
-int memory[MEMORY_SIZE];
-
-int stack[STACK_SIZE];
-int top = -1;
-
-char queue[QUEUE_SIZE][50];
-int front = 0;
-int rear = -1;
-
-int accumulator = 0;
-int programCounter = 0;
-
-
-/* ================= MEMORY ================= */
-
-void store(int address, int value)
+int main(void)
 {
-    if (address >= 0 && address < MEMORY_SIZE)
-    {
-        memory[address] = value;
-        printf("Memory[%d] = %d\n", address, value);
-    }
-    else
-    {
-        printf("Invalid memory address!\n");
-    }
-}
+    int server_fd, client_fd, log_fd;
+    int stack[MAX_ITEMS], top = -1;
+    int queue[MAX_ITEMS], front = 0, rear = -1, count = 0;
+    double accumulator = 0;
+    unsigned long instructions = 0;
 
-int load(int address)
-{
-    if (address >= 0 && address < MEMORY_SIZE)
-    {
-        return memory[address];
-    }
-    else
-    {
-        printf("Invalid memory address!\n");
-        return 0;
-    }
-}
+    struct sockaddr_un address;
+    struct mq_attr attr = {0, 10, BUFFER_SIZE, 0};
+    mqd_t mq;
 
+    char command[BUFFER_SIZE];
+    char response[BUFFER_SIZE];
+    char operation[20];
+    double a, b;
+    long value;
 
-/* ================= STACK ================= */
+    unlink(SOCKET_PATH);
+    unlink(FIFO_PATH);
+    mq_unlink(QUEUE_NAME);
 
-void push(int value)
-{
-    if (top == STACK_SIZE - 1)
-    {
-        printf("Stack Overflow!\n");
-        return;
-    }
-
-    top++;
-    stack[top] = value;
-
-    printf("PUSH %d -> Stack\n", value);
-}
-
-int pop()
-{
-    if (top == -1)
-    {
-        printf("Stack Underflow!\n");
-        return 0;
-    }
-
-    int value = stack[top];
-    top--;
-
-    printf("POP -> %d\n", value);
-
-    return value;
-}
-
-
-/* ================= QUEUE ================= */
-
-void enqueue(char instruction[])
-{
-    if (rear == QUEUE_SIZE - 1)
-    {
-        printf("Queue is full!\n");
-        return;
-    }
-
-    rear++;
-
-    strcpy(queue[rear], instruction);
-
-    printf("Added to Queue: %s\n", instruction);
-}
-
-char *dequeue()
-{
-    if (front > rear)
-    {
-        return NULL;
-    }
-
-    return queue[front++];
-}
-
-
-/* ================= CPU ================= */
-
-void executeInstruction(char instruction[])
-{
-    char command[20];
-    int value = 0;
-
-    sscanf(instruction, "%19s %d", command, &value);
-
-    printf("\nExecuting: %s\n", instruction);
-
-    if (strcmp(command, "LOAD") == 0)
-    {
-        accumulator = value;
-
-        printf("ACC = %d\n", accumulator);
-    }
-
-    else if (strcmp(command, "ADD") == 0)
-    {
-        accumulator = accumulator + value;
-
-        printf("ACC = %d\n", accumulator);
-    }
-
-    else if (strcmp(command, "SUB") == 0)
-    {
-        accumulator = accumulator - value;
-
-        printf("ACC = %d\n", accumulator);
-    }
-
-    else if (strcmp(command, "MUL") == 0)
-    {
-        accumulator = accumulator * value;
-
-        printf("ACC = %d\n", accumulator);
-    }
-
-    else if (strcmp(command, "DIV") == 0)
-    {
-        if (value == 0)
-        {
-            printf("Cannot divide by zero!\n");
-            return;
-        }
-
-        accumulator = accumulator / value;
-
-        printf("ACC = %d\n", accumulator);
-    }
-
-    else if (strcmp(command, "STORE") == 0)
-    {
-        store(value, accumulator);
-    }
-
-    else if (strcmp(command, "LOADM") == 0)
-    {
-        accumulator = load(value);
-
-        printf("ACC = %d\n", accumulator);
-    }
-
-    else if (strcmp(command, "PUSH") == 0)
-    {
-        push(accumulator);
-    }
-
-    else if (strcmp(command, "POP") == 0)
-    {
-        accumulator = pop();
-
-        printf("ACC = %d\n", accumulator);
-    }
-
-    else
-    {
-        printf("Invalid instruction!\n");
-    }
-}
-
-
-/* ================= MAIN / IPC ================= */
-
-int main()
-{
-    int ui_fd;
-    int core_fd;
-    int logger_fd;
-
-    char instruction[200];
-
-    printf("=================================\n");
-    printf("       CORE PROCESS SIMULATOR\n");
-    printf("=================================\n");
-
-    /* Create FIFOs */
-
-    if (mkfifo(UI_FIFO, 0666) == -1 && errno != EEXIST)
-    {
-        perror("ui_to_core.fifo");
+    if (mkfifo(FIFO_PATH, 0666) == -1) {
+        perror("Core: create FIFO");
         return 1;
     }
 
-    if (mkfifo(CORE_FIFO, 0666) == -1 && errno != EEXIST)
-    {
-        perror("core_to_ui.fifo");
+    mq = mq_open(QUEUE_NAME, O_CREAT | O_WRONLY, 0666, &attr);
+    if (mq == (mqd_t)-1) {
+        perror("Core: create message queue");
+        unlink(FIFO_PATH);
         return 1;
     }
 
-    if (mkfifo(LOGGER_FIFO, 0666) == -1 && errno != EEXIST)
-    {
-        perror("logger_fifo");
+    server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (server_fd == -1) {
+        perror("Core: socket");
         return 1;
     }
 
-    printf("Waiting for UI Process...\n");
+    memset(&address, 0, sizeof(address));
+    address.sun_family = AF_UNIX;
+    strcpy(address.sun_path, SOCKET_PATH);
 
-    /* UI -> CORE */
-
-    ui_fd = open(UI_FIFO, O_RDONLY);
-
-    if (ui_fd == -1)
-    {
-        perror("UI FIFO");
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) == -1) {
+        perror("Core: bind");
         return 1;
     }
 
-    /* CORE -> UI */
-
-    core_fd = open(CORE_FIFO, O_WRONLY);
-
-    if (core_fd == -1)
-    {
-        perror("CORE FIFO");
+    if (listen(server_fd, 1) == -1) {
+        perror("Core: listen");
         return 1;
     }
 
-    /* CORE -> LOGGER */
+    printf("CORE: Socket ready. Waiting for Logger...\n");
+    fflush(stdout);
 
-    logger_fd = open(LOGGER_FIFO, O_WRONLY);
-
-    if (logger_fd == -1)
-    {
-        perror("LOGGER FIFO");
+    /* Wait for Logger to open the FIFO's reading end. */
+    log_fd = open(FIFO_PATH, O_WRONLY);
+    if (log_fd == -1) {
+        perror("Core: open logger FIFO");
         return 1;
     }
 
-    printf("UI connected successfully.\n");
-    printf("Logger connected successfully.\n");
+    dprintf(log_fd, "Core started.\n");
+    printf("CORE: Logger connected. Waiting for UI...\n");
+    fflush(stdout);
 
-    printf("\nWaiting for commands from UI...\n");
+    client_fd = accept(server_fd, NULL, NULL);
+    if (client_fd == -1) {
+        perror("Core: accept");
+        return 1;
+    }
 
-    while (1)
-    {
-        int n = read(ui_fd,
-                     instruction,
-                     sizeof(instruction) - 1);
+    printf("CORE: UI connected. Ready.\n");
+    fflush(stdout);
 
-        if (n <= 0)
-        {
-            break;
-        }
+    FILE *client = fdopen(client_fd, "r");
+    if (client == NULL) {
+        perror("Core: fdopen");
+        close(client_fd);
+        return 1;
+    }
 
-        instruction[n] = '\0';
+    while (fgets(command, sizeof(command), client) != NULL) {
+        command[strcspn(command, "\r\n")] = '\0';
+        snprintf(response, sizeof(response), "Unknown command.");
 
-        instruction[strcspn(instruction, "\n")] = '\0';
-
-        printf("\nReceived: %s\n", instruction);
-
-
-        /* EXIT */
-
-        if (strcmp(instruction, "EXIT") == 0)
-        {
-            char response[] =
-                "Core Process Completed.\n";
-
-            write(core_fd,
-                  response,
-                  strlen(response));
-
-            char log[] =
-                "INFO: Core Process Stopped\n";
-
-            write(logger_fd,
-                  log,
-                  strlen(log));
-
-            break;
-        }
-
-
-        /* STATUS */
-
-        if (strcmp(instruction, "STATUS") == 0)
-        {
-            char response[200];
-
-            sprintf(response,
-                    "Program Counter = %d\n"
-                    "Accumulator = %d\n",
-                    programCounter,
-                    accumulator);
-
-            write(core_fd,
-                  response,
-                  strlen(response));
-
+        if (sscanf(command, "%19s", operation) != 1)
             continue;
+
+        if (strcmp(operation, "ADD") == 0 &&
+            sscanf(command, "%*s %lf %lf", &a, &b) == 2) {
+            accumulator = a + b;
+            snprintf(response, sizeof(response),
+                     "ADD: %.10g + %.10g = %.10g", a, b, accumulator);
+
+        } else if (strcmp(operation, "SUB") == 0 &&
+                   sscanf(command, "%*s %lf %lf", &a, &b) == 2) {
+            accumulator = a - b;
+            snprintf(response, sizeof(response),
+                     "SUBTRACT: %.10g - %.10g = %.10g", a, b, accumulator);
+
+        } else if (strcmp(operation, "MUL") == 0 &&
+                   sscanf(command, "%*s %lf %lf", &a, &b) == 2) {
+            accumulator = a * b;
+            snprintf(response, sizeof(response),
+                     "MULTIPLY: %.10g * %.10g = %.10g", a, b, accumulator);
+
+        } else if (strcmp(operation, "DIV") == 0 &&
+                   sscanf(command, "%*s %lf %lf", &a, &b) == 2) {
+            if (b == 0) {
+                snprintf(response, sizeof(response),
+                         "ERROR: Cannot divide by zero.");
+            } else {
+                accumulator = a / b;
+                snprintf(response, sizeof(response),
+                         "DIVIDE: %.10g / %.10g = %.10g",
+                         a, b, accumulator);
+            }
+
+        } else if (strcmp(operation, "LOAD") == 0 &&
+                   sscanf(command, "%*s %ld", &value) == 1) {
+            accumulator = value;
+            snprintf(response, sizeof(response),
+                     "LOAD: Accumulator = %.10g", accumulator);
+
+        } else if (strcmp(operation, "PUSH") == 0 &&
+                   sscanf(command, "%*s %ld", &value) == 1) {
+            if (top == MAX_ITEMS - 1) {
+                snprintf(response, sizeof(response), "ERROR: Stack is full.");
+            } else {
+                stack[++top] = (int)value;
+                snprintf(response, sizeof(response),
+                         "PUSH: %ld added. Stack size = %d",
+                         value, top + 1);
+            }
+
+        } else if (strcmp(operation, "POP") == 0) {
+            if (top < 0) {
+                snprintf(response, sizeof(response), "ERROR: Stack is empty.");
+            } else {
+                value = stack[top--];
+                snprintf(response, sizeof(response),
+                         "POP: Removed %ld from stack.", value);
+            }
+
+        } else if (strcmp(operation, "ENQUEUE") == 0 &&
+                   sscanf(command, "%*s %ld", &value) == 1) {
+            if (count == MAX_ITEMS) {
+                snprintf(response, sizeof(response), "ERROR: Queue is full.");
+            } else {
+                rear = (rear + 1) % MAX_ITEMS;
+                queue[rear] = (int)value;
+                count++;
+                snprintf(response, sizeof(response),
+                         "ENQUEUE: %ld added. Queue size = %d",
+                         value, count);
+            }
+
+        } else if (strcmp(operation, "DEQUEUE") == 0) {
+            if (count == 0) {
+                snprintf(response, sizeof(response), "ERROR: Queue is empty.");
+            } else {
+                value = queue[front];
+                front = (front + 1) % MAX_ITEMS;
+                count--;
+                snprintf(response, sizeof(response),
+                         "DEQUEUE: Removed %ld. Queue size = %d",
+                         value, count);
+            }
+
+        } else if (strcmp(operation, "STATUS") == 0) {
+            snprintf(response, sizeof(response),
+                     "CORE STATUS\nAccumulator: %.10g\nInstructions: %lu\n"
+                     "Stack items: %d\nQueue items: %d",
+                     accumulator, instructions, top + 1, count);
+
+        } else if (strcmp(operation, "EXIT") == 0) {
+            snprintf(response, sizeof(response), "Core shutting down. Goodbye!");
         }
 
+        instructions++;
 
-        /* EXECUTE INSTRUCTION */
+        printf("CORE received: %s\n", command);
+        printf("CORE response: %s\n", response);
+        fflush(stdout);
 
-        executeInstruction(instruction);
+        dprintf(log_fd, "Command: %s | Response: %s\n", command, response);
 
-        programCounter++;
+        if (mq_send(mq, response, strlen(response) + 1, 0) == -1) {
+            perror("Core: send message queue response");
+            break;
+        }
 
-
-        /* Send result to UI */
-
-        char response[300];
-
-        sprintf(response,
-                "Program Counter = %d\n"
-                "Accumulator = %d\n",
-                programCounter,
-                accumulator);
-
-        write(core_fd,
-              response,
-              strlen(response));
-
-
-        /* Send result to Logger */
-
-        char log[300];
-
-        sprintf(log,
-                "INFO: Executed %s | ACC = %d | PC = %d\n",
-                instruction,
-                accumulator,
-                programCounter);
-
-        write(logger_fd,
-              log,
-              strlen(log));
+        if (strcmp(operation, "EXIT") == 0)
+            break;
     }
 
+    fclose(client);
+    close(log_fd);
+    close(server_fd);
+    mq_close(mq);
+    mq_unlink(QUEUE_NAME);
+    unlink(SOCKET_PATH);
+    unlink(FIFO_PATH);
 
-    close(ui_fd);
-    close(core_fd);
-    close(logger_fd);
-
-    unlink(UI_FIFO);
-    unlink(CORE_FIFO);
-    unlink(LOGGER_FIFO);
-
-    printf("\nCore Process Completed Successfully.\n");
-
+    printf("CORE: Process stopped.\n");
     return 0;
 }
