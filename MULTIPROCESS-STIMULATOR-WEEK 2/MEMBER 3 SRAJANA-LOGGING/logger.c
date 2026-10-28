@@ -1,50 +1,53 @@
+// logger.c
 #include <stdio.h>
-#include <stdlib.h>
-#include <fcntl.h>
 #include <unistd.h>
+#include <fcntl.h>
 
-int main()
+#define FIFO_PATH "core_to_logger.fifo"
+#define LOG_FILE "simulator.log"
+
+int main(void)
 {
-    int fd;
-    char buffer[256];
-    int bytes_read;
+    int fifo_fd;
+    char buffer[512];
+    ssize_t bytes_read;
+    FILE *log_file;
 
-    printf("Logger process started...\n");
-    printf("Waiting for messages...\n");
+    printf("LOGGER: Waiting for Core...\n");
+    fflush(stdout);
 
-    fd = open("logger_fifo", O_RDONLY);
-
-    if (fd == -1)
-    {
-        perror("Error opening FIFO");
+    fifo_fd = open(FIFO_PATH, O_RDONLY);
+    if (fifo_fd == -1) {
+        perror("Logger: open FIFO");
         return 1;
     }
 
-    FILE *log_file = fopen("simulator.log", "a");
-
-    if (log_file == NULL)
-    {
-        perror("Error opening log file");
-        close(fd);
+    log_file = fopen(LOG_FILE, "a");
+    if (log_file == NULL) {
+        perror("Logger: open log file");
+        close(fifo_fd);
         return 1;
     }
-    
-    while (1)
-{
-    bytes_read = read(fd, buffer, sizeof(buffer) - 1);
 
-    if (bytes_read > 0)
-    {
-        buffer[bytes_read] = '\0';
+    printf("LOGGER: Connected successfully.\n");
+    printf("LOGGER: Saving activity to %s\n", LOG_FILE);
+    fflush(stdout);
 
-        printf("Received: %s", buffer);
-        fprintf(log_file, "%s", buffer);
+    while ((bytes_read = read(fifo_fd, buffer, sizeof(buffer))) > 0) {
+        fwrite(buffer, 1, (size_t)bytes_read, stdout);
+        fflush(stdout);
+
+        fwrite(buffer, 1, (size_t)bytes_read, log_file);
         fflush(log_file);
     }
-}
+
+    if (bytes_read == -1)
+        perror("Logger: read FIFO");
+
+    printf("LOGGER: Core connection closed.\n");
 
     fclose(log_file);
-    close(fd);
+    close(fifo_fd);
 
     return 0;
 }
