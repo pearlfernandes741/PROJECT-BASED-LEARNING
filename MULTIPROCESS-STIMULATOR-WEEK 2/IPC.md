@@ -1,280 +1,74 @@
-# IPC Technique Used – Named Pipes (FIFOs)
+# Inter-Process Communication (IPC)
 
-## IPC Technique Used
+## 1. IPC Mechanisms Used
 
-The Multiprocess Simulator uses **Named Pipes (FIFOs)** for Inter-Process Communication.
+The Multi-Process Simulator uses three IPC mechanisms to exchange commands, responses, and log messages between independent processes.
 
-The UI, Core, and Logger are independent processes. Named Pipes provide communication channels between these processes without requiring them to share the same process memory.
+## 2. UNIX Domain Socket — UI to Core
 
-Three FIFOs are used:
+**Socket path:** `/tmp/week4_sim.sock`
 
-| FIFO              | Communication | Used For                       |
-| ----------------- | ------------- | ------------------------------ |
-| `ui_to_core.fifo` | UI → Core     | Sending commands               |
-| `core_to_ui.fifo` | Core → UI     | Sending results                |
-| `logger_fifo`     | Core → Logger | Sending execution/log messages |
+The UI communicates with the Core through a UNIX domain socket.
 
-## How Named Pipes Are Used
+The UI connects to the socket and sends commands. The Core accepts the connection and receives the commands for execution.
 
-The FIFOs are created using the Linux `mkfifo()` function.
+Functions used include:
 
-The Core creates all three communication channels:
+- `socket()` — creates the socket.
+- `bind()` — associates the socket with its path.
+- `listen()` — waits for incoming connections.
+- `accept()` — accepts the UI connection.
+- `connect()` — connects the UI to the Core.
 
-```text
-ui_to_core.fifo
-core_to_ui.fifo
-logger_fifo
-```
+**Why it is used:** It provides local, bidirectional communication between the UI and Core processes.
 
-The UI uses:
+## 3. POSIX Message Queue — Core to UI
 
-```text
-ui_to_core.fifo
-```
+**Queue name:** `/week4_sim_queue`
 
-to send instructions to Core and:
+The Core sends command results to the UI through a POSIX message queue. The UI receives these responses and displays them to the user.
 
-```text
-core_to_ui.fifo
-```
+Functions used include:
 
-to receive responses.
+- `mq_open()` — opens or creates the message queue, depending on the flags used.
+- `mq_send()` — sends a response.
+- `mq_receive()` — receives a response.
 
-The Core uses:
+**Why it is used:** It provides a separate communication channel for returning results from the Core to the UI.
 
-```text
-logger_fifo
-```
+## 4. Named Pipe (FIFO) — Core to Logger
 
-to send execution information to Logger.
+**FIFO file:** `core_to_logger.fifo`
 
-The Logger reads the messages from `logger_fifo` and stores them in:
+The Core writes execution details to the FIFO. The Logger reads these messages and records them in `simulator.log`.
 
-```text
-simulator.log
-```
+Functions used include:
 
-## Communication Between UI and Core
+- `mkfifo()` — creates the named pipe.
+- `open()` — opens the FIFO.
+- `read()` — reads log messages.
+- `dprintf()` — writes formatted log messages to the FIFO file descriptor in the Core implementation.
 
-The UI and Core use two separate FIFOs because communication is required in both directions.
+**Why it is used:** It allows the Core and Logger to exchange log information through a named pipe.
 
-### UI → Core
+## 5. Communication Flow
 
-```text
-UI
- │
- │ write()
- ▼
-ui_to_core.fifo
- │
- │ read()
- ▼
-CORE
-```
-
-The UI sends instructions such as:
-
-```text
-LOAD 10
-ADD 5
-PUSH
-LOAD 20
-POP
-STORE 50
-LOADM 50
-```
-
-The Core reads these instructions and executes them.
-
-### Core → UI
-
-```text
-CORE
- │
- │ write()
- ▼
-core_to_ui.fifo
- │
- │ read()
- ▼
-UI
-```
-
-After executing an instruction, the Core sends information back to the UI.
-
-This allows the UI to display the result to the user.
-
-## Communication Between Core and Logger
-
-The Core sends execution information through `logger_fifo`.
-
-```text
-CORE
- │
- │ write()
- ▼
-logger_fifo
- │
- │ read()
- ▼
-LOGGER
- │
- ▼
-simulator.log
-```
+1. UI sends a command to Core using a UNIX domain socket.
+2. Core executes the command.
+3. Core returns the result using a POSIX message queue.
+4. Core sends execution details through a named pipe.
+5. Logger records the received information in `simulator.log`.
 
-The Logger continuously waits for messages and writes the received information to the log file.
+## 6. Advantages
 
-This keeps logging separate from the main UI interaction.
+- Processes communicate without combining their code into one executable.
+- Each process has a separate responsibility.
+- Different communication mechanisms support different data flows.
+- Logging is separated from command execution.
 
-## How the Demo Uses IPC
+## 7. Limitations
 
-When the user selects **Run Demo Program**, the UI sends instructions one by one.
-
-```text
-UI
- │
- ├── LOAD 10 ──────► Core
- │
- ├── ADD 5 ────────► Core
- │
- ├── PUSH ─────────► Core
- │
- ├── LOAD 20 ──────► Core
- │
- ├── POP ──────────► Core
- │
- ├── STORE 50 ─────► Core
- │
- └── LOADM 50 ─────► Core
-```
-
-The Core processes each instruction and sends the result back to the UI.
-
-At the same time, the Core sends execution information to the Logger.
-
-Therefore, the IPC flow during execution is:
-
-```text
-                    ┌───────────────┐
-                    │      UI       │
-                    └───────┬───────┘
-                            │
-                     Commands
-                            │
-                            ▼
-                    ui_to_core.fifo
-                            │
-                            ▼
-                    ┌───────────────┐
-                    │     CORE      │
-                    └───┬───────┬───┘
-                        │       │
-                 Results│       │Logs
-                        │       │
-                        ▼       ▼
-             core_to_ui.fifo  logger_fifo
-                        │       │
-                        ▼       ▼
-                       UI     LOGGER
-                                │
-                                ▼
-                         simulator.log
-```
-
-## Why Named Pipes Are Suitable for This Project
-
-Named Pipes are suitable for this simulator because the communication requirements are clearly separated.
-
-### 1. Separate communication channels
-
-The project uses different FIFOs for different purposes:
-
-* `ui_to_core.fifo` for commands
-* `core_to_ui.fifo` for responses
-* `logger_fifo` for logging
-
-This makes the communication paths easy to understand and manage.
-
-### 2. Suitable for independent processes
-
-UI, Core, and Logger run as separate processes. Named Pipes allow these processes to communicate through the Linux FIFO interface.
-
-### 3. Simple command and response flow
-
-The main interaction follows a simple pattern:
-
-```text
-UI → Core → UI
-```
-
-This matches the way the simulator executes instructions and returns results.
-
-### 4. Logging is separated from user interaction
-
-The Core can send information to Logger without sending the same information through the UI communication path.
-
-```text
-Core → Logger → simulator.log
-```
-
-This gives the project a separate logging mechanism.
-
-### 5. Easy Linux implementation
-
-The implementation uses standard Linux system calls such as:
-
-```text
-mkfifo()
-open()
-read()
-write()
-close()
-unlink()
-```
-
-Therefore, the IPC mechanism can be implemented directly in C without requiring an additional IPC library.
-
-## Advantages Based on Our Implementation
-
-The following advantages apply specifically to the way Named Pipes are used in this project:
-
-* **Clear communication paths:** Each FIFO has a specific purpose.
-* **Independent processes:** UI, Core, and Logger communicate without being part of the same process.
-* **Simple request-response communication:** UI sends a command and receives a response from Core.
-* **Separate logging path:** Core can send execution information directly to Logger.
-* **Simple data transfer:** The project mainly transfers commands, results, and log messages as text.
-* **Easy process separation:** UI, processing, and logging responsibilities are separated.
-* **Easy to observe and test:** The three processes can be run separately and their communication can be observed through terminal output.
-
-## Limitations Based on Our Implementation
-
-The limitations are also related to how this project is designed:
-
-* **Limited to the communication pattern used by the project:** The current design mainly supports UI → Core, Core → UI, and Core → Logger communication.
-* **Additional FIFO is required for another communication direction:** A new FIFO would be needed if Logger had to send information back to Core.
-* **Blocking behavior:** Opening or reading from a FIFO can wait until the other process is available, which is why the programs display messages such as `Waiting for Core Process...`.
-* **Text-based communication:** The current implementation sends commands and messages as character data rather than structured message objects.
-* **Not designed for large amounts of data:** The simulator exchanges relatively small commands, results, and log messages.
-* **FIFO lifecycle must be handled carefully:** The processes create, open, close, and remove the FIFOs during execution.
-
-## IPC Flow in the Final System
-
-```text
-          COMMAND
-UI ───────────────────► CORE
-       ui_to_core.fifo
-
-          RESULT
-UI ◄─────────────────── CORE
-       core_to_ui.fifo
-
-           LOG
-CORE ─────────────────► LOGGER
-          logger_fifo
-                           │
-                           ▼
-                    simulator.log
-```
-
-The Named Pipe implementation therefore provides the communication mechanism required by the three-process simulator while keeping **user interaction, instruction processing, and logging as separate processes**.
+- Processes must be started in a compatible order.
+- IPC setup and cleanup require additional code.
+- Communication failures can affect the overall execution.
+- Multiple IPC mechanisms increase implementation complexity.
