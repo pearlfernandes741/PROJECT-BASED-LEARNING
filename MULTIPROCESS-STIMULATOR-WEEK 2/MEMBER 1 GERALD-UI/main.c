@@ -139,10 +139,12 @@ int main(void)
 
         if (choice == 0)
             break;
-    }
+    } 
+    
 
     mq_close(mq);
     close(sock);
     printf("UI process stopped.\n");
     return 0;
 }
+    //User Interface between Core
