@@ -1,3 +1,4 @@
+
 CC = gcc
 CFLAGS = -Wall -Wextra -O2
 
@@ -9,11 +10,11 @@ benchmark: benchmark.c
 standalone: standalone.c
 	$(CC) $(CFLAGS) standalone.c -o standalone
 
-run-standalone: standalone
+run: all
 	./standalone
-
-run-benchmark: benchmark
 	./benchmark
 
 clean:
 	rm -f benchmark standalone
+
+.PHONY: all run clean
